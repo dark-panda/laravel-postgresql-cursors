@@ -1,0 +1,34 @@
+{
+  "name": "dark-panda/laravel-postgresql-cursors",
+  "description": "Simple PostgreSQL cursors for Laravel.",
+  "homepage": "https://github.com/dark-panda/laravel-postgresql-cursors",
+  "keywords": [
+    "laravel",
+    "cursors",
+    "postgres",
+    "postgresql"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "J Smith",
+      "email": "dark.panda@gmail.com",
+      "role": "Developer",
+      "homepage": "http://darkpanda.ca/"
+    }
+  ],
+  "require": {
+    "php": ">=5.5.9"
+  },
+  "require-dev": {
+    "illuminate/database": "~5",
+    "phpunit/phpunit": "~4",
+    "mockery/mockery": "~0.9"
+  },
+  "autoload": {
+    "psr-0": {
+      "DarkPanda": "src/"
+    }
+  },
+  "minimum-stability": "stable"
+}
