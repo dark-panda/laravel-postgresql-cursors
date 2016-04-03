@@ -27,7 +27,7 @@
   },
   "autoload": {
     "psr-4": {
-      "DarkPanda": "src/"
+      "DarkPanda\\": "src/"
     }
   },
   "minimum-stability": "dev"
