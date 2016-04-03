@@ -25,6 +25,8 @@ class PostgreSQLCursor implements \IteratorAggregate
 
     public function getIterator()
     {
+        $cursorClosed = false;
+
         try {
             $this->connection->beginTransaction();
             $this->declareCursor();
@@ -36,10 +38,11 @@ class PostgreSQLCursor implements \IteratorAggregate
 
             $this->closeCursor();
             $this->connection->commit();
-        } catch (\Exception $error) {
-            $this->connection->rollback();
-
-            throw $error;
+            $cursorClosed = true;
+        } finally {
+            if (!$cursorClosed) {
+                $this->connection->rollback();
+            }
         }
     }
 
