@@ -2,18 +2,18 @@
 
 namespace DarkPanda\Laravel\Eloquent;
 
-use Illuminate\Support\Facades\DB;
-
 class PostgreSQLCursor implements \IteratorAggregate
 {
     protected $query;
     protected $model;
     protected $cursorName;
+    protected $connection;
 
     public function __construct($query)
     {
         $this->query = clone $query;
         $this->model = $query->getModel();
+        $this->connection = $this->model->getConnection();
     }
 
     public function each(callable $callback = null)
@@ -26,7 +26,7 @@ class PostgreSQLCursor implements \IteratorAggregate
     public function getIterator()
     {
         try {
-            DB::beginTransaction();
+            $this->connection->beginTransaction();
             $this->declareCursor();
 
             while ($row = $this->fetchForward()) {
@@ -35,9 +35,9 @@ class PostgreSQLCursor implements \IteratorAggregate
             }
 
             $this->closeCursor();
-            DB::commit();
+            $this->connection->commit();
         } catch (\Exception $error) {
-            DB::rollback();
+            $this->connection->rollback();
 
             throw $error;
         }
@@ -54,16 +54,16 @@ class PostgreSQLCursor implements \IteratorAggregate
 
     public function declareCursor()
     {
-        DB::statement("declare {$this->getCursorName()} cursor for {$this->query->toSql()}", $this->query->getBindings());
+        $this->connection->statement("declare {$this->getCursorName()} cursor for {$this->query->toSql()}", $this->query->getBindings());
     }
 
     public function fetchForward()
     {
-        return DB::selectOne("fetch forward from {$this->getCursorName()}");
+        return $this->connection->selectOne("fetch forward from {$this->getCursorName()}");
     }
 
     public function closeCursor()
     {
-        DB::unprepared("close {$this->getCursorName()}");
+        $this->connection->unprepared("close {$this->getCursorName()}");
     }
 }
