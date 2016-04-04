@@ -16,8 +16,29 @@ class PostgreSQLCursor implements \IteratorAggregate
         $this->connection = $this->model->getConnection();
     }
 
-    public function each(callable $callback = null)
+    public function each()
     {
+        $count = 1;
+        $callback = null;
+        $args = func_get_args();
+
+        if (count($args) > 1) {
+            list($count, $callback) = $args;
+        } else {
+            list($callback) = $args;
+        }
+
+        if ($count < 1) {
+            throw new \InvalidArgumentException('$count should be > 0.');
+        }
+
+        if ($count > 1) {
+            foreach ($this->iterate($count) as $models) {
+                $callback($models);
+            }
+            return;
+        }
+
         foreach ($this as $model) {
             $callback($model);
         }
@@ -25,15 +46,27 @@ class PostgreSQLCursor implements \IteratorAggregate
 
     public function getIterator()
     {
+        foreach ($this->iterate() as $rows) {
+            yield $rows[0];
+        }
+    }
+
+    public function iterate($count = 1)
+    {
         $cursorClosed = false;
 
         try {
             $this->connection->beginTransaction();
             $this->declareCursor();
 
-            while ($row = $this->fetchForward()) {
-                $model = $this->model->newFromBuilder($row);
-                yield $model;
+            while ($rows = $this->fetchForward($count)) {
+                // var_dump($rows);
+
+                $models = array_map(function ($row) {
+                    return $this->model->newFromBuilder($row);
+                }, $rows);
+
+                yield $models;
             }
 
             $this->closeCursor();
@@ -60,9 +93,9 @@ class PostgreSQLCursor implements \IteratorAggregate
         $this->connection->statement("declare {$this->getCursorName()} cursor for {$this->query->toSql()}", $this->query->getBindings());
     }
 
-    public function fetchForward()
+    public function fetchForward($count = 1)
     {
-        return $this->connection->selectOne("fetch forward from {$this->getCursorName()}");
+        return $this->connection->select(sprintf("fetch forward %d from {$this->getCursorName()}", $count));
     }
 
     public function closeCursor()

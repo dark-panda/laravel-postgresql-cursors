@@ -55,8 +55,8 @@ class PostgreSQLCursorsTest extends \PHPUnit_Framework_TestCase
             ['Foo']
         );
 
-        $this->assertQuery($queryLog[3], "fetch forward from {$cursorName}");
-        $this->assertQuery($queryLog[4], "fetch forward from {$cursorName}");
+        $this->assertQuery($queryLog[3], "fetch forward 1 from {$cursorName}");
+        $this->assertQuery($queryLog[4], "fetch forward 1 from {$cursorName}");
         $this->assertQuery($queryLog[5], "close {$cursorName}");
 
         $this->assertRecordsEqual([$mockFoo], $objects);
@@ -84,8 +84,8 @@ class PostgreSQLCursorsTest extends \PHPUnit_Framework_TestCase
             ['Foo']
         );
 
-        $this->assertQuery($queryLog[3], "fetch forward from {$cursorName}");
-        $this->assertQuery($queryLog[4], "fetch forward from {$cursorName}");
+        $this->assertQuery($queryLog[3], "fetch forward 1 from {$cursorName}");
+        $this->assertQuery($queryLog[4], "fetch forward 1 from {$cursorName}");
         $this->assertQuery($queryLog[5], "close {$cursorName}");
 
         $this->assertRecordsEqual([$mockFoo], $objects);
@@ -122,7 +122,7 @@ class PostgreSQLCursorsTest extends \PHPUnit_Framework_TestCase
             ['Foo']
         );
 
-        $this->assertQuery($queryLog[3], "fetch forward from {$cursorNameOuter}");
+        $this->assertQuery($queryLog[3], "fetch forward 1 from {$cursorNameOuter}");
 
         $this->assertQuery(
             $queryLog[4],
@@ -130,10 +130,10 @@ class PostgreSQLCursorsTest extends \PHPUnit_Framework_TestCase
             ['Bar']
         );
 
-        $this->assertQuery($queryLog[5], "fetch forward from {$cursorNameInner}");
-        $this->assertQuery($queryLog[6], "fetch forward from {$cursorNameInner}");
+        $this->assertQuery($queryLog[5], "fetch forward 1 from {$cursorNameInner}");
+        $this->assertQuery($queryLog[6], "fetch forward 1 from {$cursorNameInner}");
         $this->assertQuery($queryLog[7], "close {$cursorNameInner}");
-        $this->assertQuery($queryLog[8], "fetch forward from {$cursorNameOuter}");
+        $this->assertQuery($queryLog[8], "fetch forward 1 from {$cursorNameOuter}");
         $this->assertQuery($queryLog[9], "close {$cursorNameOuter}");
 
         $this->assertRecordsEqual([$mockFoo, $mockBar], $objects);
@@ -172,9 +172,56 @@ class PostgreSQLCursorsTest extends \PHPUnit_Framework_TestCase
             "declare {$cursorName} cursor for select * from \"cursor_models\" order by \"created_at\" asc"
         );
 
-        $this->assertQuery($queryLog[3], "fetch forward from {$cursorName}");
+        $this->assertQuery($queryLog[3], "fetch forward 1 from {$cursorName}");
 
         $this->assertRecordsEqual([$mockFoo], $objects);
+    }
+
+    public function testCursorEachMultiple()
+    {
+        $mocks = array_map(function ($i) {
+            return PostgreSQLCursorsTestModel::create(['name' => "Record {$i}"]);
+        }, range(1, 10));
+
+        $scope = PostgreSQLCursorsTestModel::query();
+        $cursor = $scope->cursor();
+        $cursorName = $cursor->getCursorName();
+        $chunks = [];
+
+        $cursor->each(3, function ($chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        });
+
+        $queryLog = $this->connection->getQueryLog();
+
+        $this->assertQuery(
+            $queryLog[10],
+            "declare {$cursorName} cursor for select * from \"cursor_models\""
+        );
+
+        $this->assertQuery($queryLog[11], "fetch forward 3 from {$cursorName}");
+        $this->assertQuery($queryLog[12], "fetch forward 3 from {$cursorName}");
+        $this->assertQuery($queryLog[13], "fetch forward 3 from {$cursorName}");
+        $this->assertQuery($queryLog[14], "fetch forward 3 from {$cursorName}");
+        $this->assertQuery($queryLog[15], "fetch forward 3 from {$cursorName}");
+        $this->assertQuery($queryLog[16], "close {$cursorName}");
+
+        $expectedChunks = array_chunk($mocks, 3);
+        $this->assertEquals(4, count($expectedChunks));
+        $this->assertRecordsEqual($expectedChunks[0], $chunks[0]);
+        $this->assertRecordsEqual($expectedChunks[1], $chunks[1]);
+        $this->assertRecordsEqual($expectedChunks[2], $chunks[2]);
+        $this->assertRecordsEqual($expectedChunks[3], $chunks[3]);
+    }
+
+    public function testCursorEachMultipleWithBadValue()
+    {
+        $scope = PostgreSQLCursorsTestModel::query();
+        $cursor = $scope->cursor();
+
+        $this->setExpectedException(\InvalidArgumentException::class, '$count should be > 0.');
+
+        $cursor->each(-1, 'callback');
     }
 
     private function assertQuery($query, $expectedSql, $expectedBindings = [])

@@ -27,6 +27,12 @@ $records->each(function ($record) {
 
 // Or...
 
+$records->each(3, function ($records) {
+  // now you'll get 3 records per iteration...
+});
+
+// Or...
+
 $records->each('dump');
 ```
 
@@ -38,7 +44,6 @@ $records->each('dump');
   will be committed and the cursor closed.
 
 * These cursors are currently very simple, and are fetch forward-only.
-  You'll get a single record per iteration with no scrolling.
 
 * Eager loading is not currently handled, as we'd need to grab those records
   within the cursor as one big set of JOINs and then sort them out into their
